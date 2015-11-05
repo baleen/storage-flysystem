@@ -10,10 +10,10 @@ php:
   - hhvm
  
 matrix:
-  allow_failures:
+  #allow_failures:
+  include:
     - php: 7.0
     - php: hhvm
-  include:
     - php: 5.5
       env: deps=low
 
