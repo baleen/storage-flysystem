@@ -41,7 +41,7 @@ final class FlyStorage extends AbstractStorage
 
     /**
      * @param FilesystemInterface $filesystem
-     * @param string $fileName
+     * @param string              $fileName
      *
      * @throws StorageException
      */
@@ -52,13 +52,87 @@ final class FlyStorage extends AbstractStorage
         }
         $handler = $filesystem->get($fileName);
         if (!$handler->isFile()) {
-            throw new StorageException(sprintf(
-                'Expected path "%s" to be a file but its a "%s".',
-                $handler->getPath(),
-                $handler->getType()
-            ));
+            throw new StorageException(
+                sprintf(
+                    'Expected path "%s" to be a file but its a "%s".',
+                    $handler->getPath(),
+                    $handler->getType()
+                )
+            );
         }
         $this->file = $handler;
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * @param VersionInterface $version
+     *
+     * @return bool|int
+     *
+     * @throws StorageException
+     */
+    public function save(VersionInterface $version)
+    {
+        $result = false;
+        $stored = $this->fetchAll();
+        if (!$stored->getById($version->getId())) {
+            $stored->add($version);
+            $result = $this->saveCollection($stored);
+        }
+
+        return $result;
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * @param Migrated $versions
+     *
+     * @return int
+     *
+     * @throws StorageException
+     */
+    public function saveCollection(Migrated $versions)
+    {
+        $ids = array_map(
+            function (VersionInterface $v) {
+                return $v->getId();
+            },
+            $versions->toArray()
+        );
+        $contents = implode("\n", $ids);
+
+        $result = $this->file->write($contents);
+        if ($result === false) {
+            throw new StorageException(
+                sprintf(
+                    'Could not write to file "%s".',
+                    $this->file->getPath()
+                )
+            );
+        }
+
+        return (bool) $result;
+    }
+
+    /**
+     * @{inheritdoc}
+     * @param VersionInterface $version
+     * @return bool|int
+     * @throws StorageException
+     */
+    public function delete(VersionInterface $version)
+    {
+        $result = false;
+        $stored = $this->fetchAll();
+        $element = $stored->getById($version->getId());
+        if ($element) {
+            $stored->removeElement($element);
+            $result = $this->saveCollection($stored);
+        }
+
+        return $result;
     }
 
     /**
@@ -84,63 +158,5 @@ final class FlyStorage extends AbstractStorage
         }
 
         return $collection;
-    }
-
-    /**
-     * Write a collection of versions to the storage file.
-     *
-     * @param Migrated $versions
-     *
-     * @return int
-     *
-     * @throws StorageException
-     */
-    public function saveCollection(Migrated $versions)
-    {
-        $ids = array_map(function (VersionInterface $v) {
-            return $v->getId();
-        }, $versions->toArray());
-        $contents = implode("\n", $ids);
-
-        $result = $this->file->write($contents);
-        if ($result === false) {
-            throw new StorageException(sprintf(
-               'Could not write to file "%s".',
-               $this->file->getPath()
-            ));
-        }
-
-        return (bool) $result;
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function save(VersionInterface $version)
-    {
-        $result = false;
-        $stored = $this->fetchAll();
-        if (!$stored->getById($version->getId())) {
-            $stored->add($version);
-            $result = $this->saveCollection($stored);
-        }
-
-        return $result;
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function delete(VersionInterface $version)
-    {
-        $result = false;
-        $stored = $this->fetchAll();
-        $element = $stored->getById($version->getId() );
-        if ($element) {
-            $stored->removeElement($element);
-            $result = $this->saveCollection($stored);
-        }
-
-        return $result;
     }
 }
