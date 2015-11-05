@@ -1,0 +1,27 @@
+{
+    "name": "baleen/storage-flysystem",
+    "description": "Provides Baleen Migrations with FlyStorage class that uses FlySystem.",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Gabriel Somoza",
+            "email": "gabriel@somoza.me"
+        }
+    ],
+    "minimum-stability": "stable",
+    "autoload": {
+        "classmap": ["src/FlyStorage.php"]
+    },
+    "autoload-dev": {
+        "classmap": ["test/FileStorageTest.php"]
+    },
+    "require": {
+        "baleen/migrations": "dev-repository-stack",
+        "league/flysystem": "^1.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "*",
+        "mockery/mockery": "^0.9.4"
+    }
+}
