@@ -5,7 +5,7 @@ Status
 [![Build Status](https://travis-ci.org/baleen/storage-flysystem.svg?branch=master)](https://travis-ci.org/baleen/storage-flysystem)
 [![Code Coverage](https://scrutinizer-ci.com/g/baleen/storage-flysystem/badges/coverage.png?b=master)](https://scrutinizer-ci.com/g/baleen/storage-flysystem/?branch=master)
 [![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/baleen/storage-flysystem/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/baleen/storage-flysystem/?branch=master)
-[![SensioLabsInsight](https://img.shields.io/sensiolabs/i/6251e1ff-532d-4dad-a831-93dcf0561a49.svg)](https://insight.sensiolabs.com/projects/6251e1ff-532d-4dad-a831-93dcf0561a49)
+[![SensioLabsInsight](https://insight.sensiolabs.com/projects/f2612fd1-576a-4266-a1e4-5ae371adf904/big.png)](https://insight.sensiolabs.com/projects/f2612fd1-576a-4266-a1e4-5ae371adf904)
 [![Packagist](https://img.shields.io/packagist/v/baleen/storage-flysystem.svg)](https://packagist.org/packages/baleen/storage-flysystem)
 
 [![Author](http://img.shields.io/badge/author-@gabriel_somoza-blue.svg)](https://twitter.com/gabriel_somoza)
