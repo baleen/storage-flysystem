@@ -17,7 +17,7 @@
         "classmap": ["test/FileStorageTest.php"]
     },
     "require": {
-        "baleen/migrations": "dev-repository-stack",
+        "baleen/migrations": "^0.8",
         "league/flysystem": "^1.0"
     },
     "require-dev": {
