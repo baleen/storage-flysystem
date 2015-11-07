@@ -152,7 +152,7 @@ class FlyStorageTest extends \PHPUnit_Framework_TestCase
     {
         $versions = new Migrated($versions);
         $instance = $this->getInstance();
-        $this->handler->shouldReceive('write')->once()->with($expected)->andReturn($result);
+        $this->handler->shouldReceive('put')->once()->with($expected)->andReturn($result);
         if ($result === false) {
             $this->setExpectedException(StorageException::class);
         }
@@ -207,7 +207,7 @@ class FlyStorageTest extends \PHPUnit_Framework_TestCase
             $willWrite = true;
         }
         if ($willWrite) {
-            $this->handler->shouldReceive('write')->once()->with(implode("\n", $expected))->andReturn(true);
+            $this->handler->shouldReceive('put')->once()->with(implode("\n", $expected))->andReturn(true);
         }
 
         $result = $instance->$method($version);

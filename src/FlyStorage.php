@@ -103,7 +103,7 @@ final class FlyStorage extends AbstractStorage
         );
         $contents = implode("\n", $ids);
 
-        $result = $this->file->write($contents);
+        $result = $this->file->put($contents);
         if ($result === false) {
             throw new StorageException(
                 sprintf(
