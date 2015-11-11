@@ -148,10 +148,10 @@ final class FlyStorage extends AbstractStorage
         $lines = explode("\n", $contents);
 
         $collection = new Migrated();
-        foreach ($lines as $versionId) {
-            $versionId = trim($versionId);
-            if (!empty($versionId)) { // skip empty lines
-                $version = new Version($versionId);
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (!empty($line)) { // skip empty lines
+                $version = new Version($line);
                 $version->setMigrated(true); // if its in storage its because it has been migrated
                 $collection->add($version);
             }

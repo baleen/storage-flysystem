@@ -14,7 +14,7 @@
         "classmap": ["src/FlyStorage.php"]
     },
     "autoload-dev": {
-        "classmap": ["test/FileStorageTest.php"]
+        "classmap": ["test/FlyStorageTest.php"]
     },
     "require": {
         "baleen/migrations": "^0.8",
