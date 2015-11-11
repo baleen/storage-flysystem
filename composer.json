@@ -17,7 +17,7 @@
         "classmap": ["test/FlyStorageTest.php"]
     },
     "require": {
-        "baleen/migrations": "^0.8",
+        "baleen/migrations": "^0.9",
         "league/flysystem": "^1.0"
     },
     "require-dev": {
