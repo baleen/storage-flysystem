@@ -19,11 +19,12 @@
 
 namespace BaleenTest\Migrations\Storage;
 
-use Baleen\Migrations\Exception\StorageException;
-use Baleen\Migrations\Storage\AbstractStorage;
+use Baleen\Migrations\Exception\Version\Repository\StorageException;
 use Baleen\Migrations\Version;
 use Baleen\Migrations\Version\Collection\Migrated;
-use Baleen\Storage\FlyStorage;
+use Baleen\Migrations\Version\Repository\Mapper\VersionMapperInterface;
+use Baleen\Migrations\Version\VersionId;
+use Baleen\Storage\FlyVersionMapper;
 use League\Flysystem\File;
 use League\Flysystem\FilesystemInterface;
 use Mockery as m;
@@ -62,7 +63,7 @@ class FlyStorageTest extends \PHPUnit_Framework_TestCase
      * @param bool $hasPath
      * @param bool $isFile
      *
-     * @return FlyStorage
+     * @return FlyVersionMapper
      */
     public function getInstance($hasPath = true, $isFile = true) {
         $fileName = 'test.txt';
@@ -78,7 +79,7 @@ class FlyStorageTest extends \PHPUnit_Framework_TestCase
         }
         $filesystem->shouldReceive('get')->with($fileName)->zeroOrMoreTimes()->andReturn($this->handler);
         $this->filesystem = $filesystem;
-        return new FlyStorage($filesystem, $fileName);
+        return new FlyVersionMapper($filesystem, $fileName);
     }
 
     /**
@@ -91,11 +92,17 @@ class FlyStorageTest extends \PHPUnit_Framework_TestCase
         if (!$isFile) {
             $this->setExpectedException(StorageException::class);
         }
-        $instance = $this->getInstance($hasPath, $isFile);
-        $this->assertInstanceOf(AbstractStorage::class, $instance);
+        $mapper = $this->getInstance($hasPath, $isFile);
+
+        $this->assertInstanceOf(VersionMapperInterface::class, $mapper);
+
         $this->filesystem->shouldHaveReceived('has')->with(m::type('string'))->once();
     }
 
+    /**
+     * constructorProvider
+     * @return array
+     */
     public function constructorProvider() {
         $trueFalse = [true, false];
         return $this->combinations([$trueFalse, $trueFalse]);
@@ -107,20 +114,18 @@ class FlyStorageTest extends \PHPUnit_Framework_TestCase
      *
      * @dataProvider fetchAllProvider
      */
-    public function testDoFetchAll($contents, $expectedIds)
+    public function testFetchAll($contents, $expectedIds)
     {
-        $instance = $this->getInstance();
+        $mapper = $this->getInstance();
         $this->handler->shouldReceive('read')->once()->andReturn((string) $contents);
 
-        $method = new \ReflectionMethod($instance, 'doFetchAll');
-        $method->setAccessible(true);
-        $result = $method->invoke($instance);
-        $this->assertInstanceOf(Migrated::class, $result);
+        $ids = $mapper->fetchAll();
+        $this->assertTrue(is_array($ids));
 
-        /** @var Migrated $result */
-        $resultIds = array_map(function(Version $v) {
-            return $v->getId();
-        }, $result->toArray());
+        $resultIds = array_map(function(VersionId $id) {
+            return $id->toString();
+        }, $ids);
+
         foreach ($expectedIds as $id) {
             $this->assertContains($id, $resultIds);
         }
@@ -140,44 +145,42 @@ class FlyStorageTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @param Migrated $versions
-     *
-     * @param $expected
-     * @param $result
+     * @param array $versions
+     * @param array $expected
+     * @param       $result
      *
      * @throws StorageException
-     * @dataProvider writeMigratedVersionsProvider
+     * @dataProvider saveAllProvider
      */
-    public function testWriteMigratedVersions($versions, $expected, $result)
+    public function testSaveAll(array $versions, $expected, $result)
     {
-        $versions = new Migrated($versions);
-        $instance = $this->getInstance();
+        $mapper = $this->getInstance();
+
         $this->handler->shouldReceive('put')->once()->with($expected)->andReturn($result);
         if ($result === false) {
             $this->setExpectedException(StorageException::class);
         }
-        $instance->saveCollection($versions);
+
+        $mapper->saveAll($versions);
     }
 
     /**
-     * writeMigratedVersionsProvider
+     * saveAllProvider
      * @return array
      */
-    public function writeMigratedVersionsProvider()
+    public function saveAllProvider()
     {
-        $versions = [];
-        foreach ($this->versionIds as $id) {
-            $version = new Version($id);
-            $version->setMigrated(true);
-            $versions[$id] = $version;
-        }
-        /** @var Version $firstVersion */
+        $versions = array_map(function($id) {
+            return new VersionId($id);
+        }, $this->versionIds);
+
+        /** @var VersionId $firstVersion */
         $firstVersion = reset($versions);
 
         $expected = implode( "\n", $this->versionIds );
 
         return [
-            [[$firstVersion], $firstVersion->getId(), true],
+            [[$firstVersion], $firstVersion->toString(), true],
             [$versions, $expected, true],
             [$versions, $expected, false],
         ];
@@ -187,20 +190,23 @@ class FlyStorageTest extends \PHPUnit_Framework_TestCase
      * Test 'save' and 'remove'
      *
      * @param $method
-     * @param Version $version
+     * @param VersionId $version
      *
      * @dataProvider saveRemoveProvider
      */
-    public function testSaveRemove($method, Version $version)
+    public function testSaveRemove($method, VersionId $version)
     {
-        $instance = $this->getInstance();
+        $mapper = $this->getInstance();
+
         $this->handler->shouldReceive('read')->once()->andReturn(implode("\n", $this->versionIds));
+
         $expected = $this->versionIds;
-        $pos = array_search($version->getId(), $expected);
+
+        $pos = array_search($version->toString(), $expected);
 
         $willWrite = false;
         if ($method == 'save' && $pos === false) {
-            array_push($expected, $version->getId());
+            array_push($expected, $version->toString());
             $willWrite = true;
         } elseif ($method == 'delete' && $pos !== false) {
             unset($expected[$pos]);
@@ -210,7 +216,7 @@ class FlyStorageTest extends \PHPUnit_Framework_TestCase
             $this->handler->shouldReceive('put')->once()->with(implode("\n", $expected))->andReturn(true);
         }
 
-        $result = $instance->$method($version);
+        $result = $mapper->$method($version);
         $this->assertSame(
             $willWrite,
             $result,
@@ -225,15 +231,12 @@ class FlyStorageTest extends \PHPUnit_Framework_TestCase
     public function saveRemoveProvider()
     {
         $methods = ['save', 'delete'];
-        $versions = Version::fromArray([
-            'v1', // first
-            'v3', // middle
-            'v5', // last
-            'v6', // doesn't exist
-        ]);
-        foreach ($versions as $v) {
-            $v->setMigrated(true);
-        }
+        $versions = [
+            new VersionId('v1'), // first
+            new VersionId('v3'), // middle
+            new VersionId('v5'), // last
+            new VersionId('v6'), // doesn't exist
+        ];
         return $this->combinations([$methods, $versions]);
     }
 
@@ -265,5 +268,23 @@ class FlyStorageTest extends \PHPUnit_Framework_TestCase
         }
 
         return $result;
+    }
+
+    /**
+     * testFetch
+     * @dataProvider fetchAllProvider
+     * @param $contents
+     * @param $availableIds
+     */
+    public function testFetch($contents, $availableIds)
+    {
+        $mapper = $this->getInstance();
+        $this->handler->shouldReceive('read')->atLeast(1)->andReturn((string) $contents);
+
+        foreach ($availableIds as $id) {
+            $versionId = new VersionId($id);
+            $res = $mapper->fetch($versionId);
+            $this->assertInstanceOf(VersionId::class, $res);
+        }
     }
 }
