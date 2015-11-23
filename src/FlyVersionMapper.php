@@ -19,11 +19,10 @@
 
 namespace Baleen\Storage;
 
-use Baleen\Migrations\Exception\StorageException;
-use Baleen\Migrations\Storage\AbstractStorage;
-use Baleen\Migrations\Version;
-use Baleen\Migrations\Version\Collection\Migrated;
-use Baleen\Migrations\Version\VersionInterface;
+use Baleen\Migrations\Exception\Version\Repository\StorageException;
+use Baleen\Migrations\Shared\ValueObjectInterface;
+use Baleen\Migrations\Version\Repository\Mapper\VersionMapperInterface;
+use Baleen\Migrations\Version\VersionId;
 use League\Flysystem\File;
 use League\Flysystem\FilesystemInterface;
 
@@ -32,7 +31,7 @@ use League\Flysystem\FilesystemInterface;
  *
  * @author Gabriel Somoza <gabriel@strategery.io>
  */
-final class FlyStorage extends AbstractStorage
+final class FlyVersionMapper implements VersionMapperInterface
 {
     const DEFAULT_FILENAME = '.baleen_versions';
 
@@ -64,42 +63,83 @@ final class FlyStorage extends AbstractStorage
     }
 
     /**
-     * {@inheritdoc}
-     *
-     * @param VersionInterface $version
-     *
-     * @return bool|int
-     *
-     * @throws StorageException
+     * @inheritdoc
      */
-    public function save(VersionInterface $version)
+    public function save(VersionId $id)
     {
         $result = false;
         $stored = $this->fetchAll();
-        if (!$stored->getById($version->getId())) {
-            $stored->add($version);
-            $result = $this->saveCollection($stored);
+
+        $index = $this->indexOf($id, $stored);
+        if (null === $index) {
+            $stored[] = $id;
+            $result = $this->saveAll($stored);
         }
 
         return $result;
     }
 
     /**
-     * {@inheritdoc}
-     *
-     * @param Migrated $versions
-     *
-     * @return int
-     *
-     * @throws StorageException
+     * @inheritdoc
      */
-    public function saveCollection(Migrated $versions)
+    public function delete(VersionId $id)
+    {
+        $result = false;
+        $index = null;
+
+        $stored = $this->fetchAll();
+
+        $index = $this->indexOf($id, $stored);
+        if (null !== $index) {
+            unset($stored[$index]);
+            $result = $this->saveAll($stored);
+        }
+
+        return $result;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function fetchAll()
+    {
+        $contents = $this->file->read();
+        $lines = explode("\n", $contents);
+
+        $collection = [];
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (!empty($line)) { // skip empty lines
+                $collection[] = new VersionId($line);
+            }
+        }
+
+        return $collection;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function fetch(VersionId $id)
+    {
+        $result = null;
+        $stored = $this->fetchAll();
+
+        $index = $this->indexOf($id, $stored);
+
+        return null !== $index ? $stored[$index] : null;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function saveAll(array $ids)
     {
         $ids = array_map(
-            function (VersionInterface $v) {
-                return $v->getId();
+            function (VersionId $v) {
+                return $v->toString();
             },
-            $versions->toArray()
+            $ids
         );
         $contents = implode("\n", $ids);
 
@@ -117,46 +157,18 @@ final class FlyStorage extends AbstractStorage
     }
 
     /**
-     * @{inheritdoc}
-     * @param VersionInterface $version
-     * @return bool|int
-     * @throws StorageException
+     * Finds a needle VersionId in a VersionId[] haystack
+     * @param VersionId $needle
+     * @param array $haystack
+     * @return int|null
      */
-    public function delete(VersionInterface $version)
-    {
-        $result = false;
-        $stored = $this->fetchAll();
-        $element = $stored->getById($version->getId());
-        if ($element) {
-            $stored->removeElement($element);
-            $result = $this->saveCollection($stored);
-        }
-
-        return $result;
-    }
-
-    /**
-     * Reads versions from the storage file.
-     *
-     * @return VersionInterface[]
-     *
-     * @throws StorageException
-     */
-    protected function doFetchAll()
-    {
-        $contents = $this->file->read();
-        $lines = explode("\n", $contents);
-
-        $collection = new Migrated();
-        foreach ($lines as $line) {
-            $line = trim($line);
-            if (!empty($line)) { // skip empty lines
-                $version = new Version($line);
-                $version->setMigrated(true); // if its in storage its because it has been migrated
-                $collection->add($version);
+    private function indexOf(VersionId $needle, array $haystack) {
+        foreach ($haystack as $index => $item) {
+            /** @var ValueObjectInterface $item */
+            if ($needle->isSameValueAs($item)) {
+                return $index;
             }
         }
-
-        return $collection;
+        return null;
     }
 }
